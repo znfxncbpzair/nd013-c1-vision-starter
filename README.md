@@ -141,20 +141,110 @@ python inference_video.py --labelmap_path label_map.pbtxt --model_path experimen
 ## Submission Template
 
 ### Project overview
-This section should contain a brief description of the project and what we are trying to achieve. Why is object detection such an important component of self driving car systems?
+
+#### Overview
+This is the software code to detect objects for Auto Driving System.
+Detecting is using only camera images, and not using time-series imformation.
+The detction results should be used with Integration with other sensors and Filters for time-series data.
+
+#### Detecting target object
+ - Vehicles
+ - Pedatsrians
+ - Cyclists
+
+#### Input data
+ - Front Camera image
+
+#### Output data
+ - Detection result
+   - Target Class
+   - Bounding Box
+   - Reliability
 
 ### Set up
-This section should contain a brief description of the steps to follow to run the code for this repository.
+#### Host PC setup
+ - Install NVIDIA driver
+ - Install Docker CLI
+
+#### Build Docker image
+```
+$ docker build ./build -t project-dev
+```
+
+#### Run Docker image
+```
+$ docker run -it --rm --gpus all -v $PWD:/app/project --shm-size=2048mb --net=host --init project-dev bash
+```
 
 ### Dataset
 #### Dataset analysis
-This section should contain a quantitative and qualitative description of the dataset. It should include images, charts and other visualizations.
+Dataset contains front camera image with Bounding Box.
+
+It has a lot of vehicle data but small amount of cyclist data.
+
+![](img/classes.png)
+
+It has images of variable weather conditions, including night, or rainy day.
+
+![](img/dataset.jpg)
+
 #### Cross validation
-This section should detail the cross validation strategy and justify your approach.
+Shuffle and split data as following;
+ - `data/train`: for Training (75%)
+ - `data/val`: for Validation (15%)
+ - `data/test`: for Testing (10%)
 
 ### Training
-#### Reference experiment
-This section should detail the results of the reference experiment. It should includes training metrics and a detailed explanation of the algorithm's performances.
 
-#### Improve on the reference
-This section should highlight the different strategies you adopted to improve your model. It should contain relevant figures and details of your findings.
+#### Experiment parameters summary
+ - Reference: original parameters
+ - Improve01: increase batch size ( 2 -> 3 )
+ - Improve03: Improve01 + 1/4 learning rate ( base: 0.04 -> 0.01, warmup: 0.013333 -> 0.000333325 )
+ - Improve04: Improve03 + add data augmentation (brightness, contrast, saturation)
+
+#### Parameter fitting story
+ - Reference:
+   - no change from original parameters
+   - Precision and Recall values seem bad.
+   - It can detect almost nothing in test data (see following movie).
+ - Improve01:
+   - For first step, I increased batch size.
+   - One reason is to efficient training with parallel computing.
+   - Another reason is because small batch size means sensitive for each image.
+   - I tried and check max batch size for my GPU memory, and it was 3.
+   - Batch size 3 improves Precision and Recall.
+   - In test data, it can detect vehicles but can not detect the pedastrian with umbrella (see following movie).
+ - Improve03:
+   - Next, I decreased learning rate.
+   - I felt learning rate is too large because Loss Graph of Improve01 seems flopping.
+   - 1/4 learning rate improves Precision and Recall.
+   - In test data, it can detect vehicles and also the pedastrian with umbrella (see following movie).
+ - Improve04:
+   - Next, I added data augmentation (brightness, contrast, saturation)
+   - The reason is to improve performance for low contrast images like rainy day.
+   - Added data augmentation improves Precision and Recall in very small amount.
+   - In test data, there is also very small difference (see following movie).
+     - Detecting the pedastrian with umbrella improves slightly. It detects when the pedastrian is on right edge of image.
+   - I think this is because the model already has enough robustness for colors (brightness, contrast, saturation).
+
+#### Loss Graph
+![](img/loss.png)
+
+#### Precision and Recall
+![](img/precision_recall.png)
+
+#### Result movie of Testing Data
+ - Reference:
+    ![](img/testdata_reference.gif)
+
+ - Improve01:
+    ![](img/testdata_improve01.gif)
+
+ - Improve03:
+    ![](img/testdata_improve03.gif)
+
+ - Improve04:
+    ![](img/testdata_improve04.gif)
+
+#### Conclusion
+Finnaly, I chose Improve04 model for result of this experiment
